@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>DFI Shield</title>
+<style>
+body{margin:0;background:#000;color:#0f0;font-family:monospace}
+#gate{display:flex;align-items:center;justify-content:center;height:100vh}
+#content{display:none;padding:40px}
+</style>
+</head>
+<body>
+
+<div id="gate">
+<div>Initializing secure environment…</div>
+</div>
+
+<div id="content">
+<h1>DFI Protected Content</h1>
+<p>If you see this, basic automation failed.</p>
+</div>
+
+<script>
+/* ==========================================================
+   DFI SHIELD — STATIC GITHUB EDITION
+   No backend. No abuse. Realistic friction layer.
+========================================================== */
+
+const Shield = {
+    score: 0,
+    signals: 0,
+    flags: new Set(),
+    fingerprint: null,
+    powSolved: false,
+
+    penalize(r,w=1){
+        if(!this.flags.has(r)){
+            this.flags.add(r);
+            this.score+=w;
+        }
+    },
+
+    reward(){ this.signals++; }
+};
+
+/* ==============================
+   1. Environment Checks
+============================== */
+
+(function(){
+    if(navigator.webdriver) Shield.penalize("webdriver",5);
+    if(/Headless|Phantom|Slimer/i.test(navigator.userAgent))
+        Shield.penalize("headless_ua",5);
+    if(!navigator.languages?.length)
+        Shield.penalize("no_languages",2);
+    if(navigator.plugins && navigator.plugins.length===0)
+        Shield.penalize("no_plugins",2);
+    if(window.outerWidth===0||window.outerHeight===0)
+        Shield.penalize("zero_viewport",3);
+
+    Shield.reward();
+})();
+
+/* ==============================
+   2. Canvas Fingerprint
+============================== */
+
+(async function(){
+    try{
+        const c=document.createElement("canvas");
+        const ctx=c.getContext("2d");
+        ctx.font="16px Arial";
+        ctx.fillText("DFI_SECURE",10,10);
+        const data=c.toDataURL();
+        const buf=await crypto.subtle.digest(
+            "SHA-256",
+            new TextEncoder().encode(data)
+        );
+        Shield.fingerprint=[...new Uint8Array(buf)]
+            .map(b=>b.toString(16).padStart(2,"0"))
+            .join("");
+        Shield.reward();
+    }catch{
+        Shield.penalize("canvas_error",3);
+    }
+})();
+
+/* ==============================
+   3. Behavioral Entropy
+============================== */
+
+(function(){
+    let path=[];
+    let last=0;
+
+    addEventListener("mousemove",e=>{
+        const now=performance.now();
+        if(last && now-last<4)
+            Shield.penalize("impossible_speed",2);
+        path.push({x:e.clientX,y:e.clientY,t:now});
+        last=now;
+
+        if(path.length>40){
+            let curvature=0;
+            for(let i=2;i<path.length;i++){
+                const a=path[i-2];
+                const b=path[i-1];
+                const c=path[i];
+                curvature+=Math.abs(
+                    (b.x-a.x)*(c.y-b.y)-
+                    (b.y-a.y)*(c.x-b.x)
+                );
+            }
+            if(curvature<25)
+                Shield.penalize("robotic_path",3);
+            else
+                Shield.reward();
+            path=path.slice(-20);
+        }
+    },{passive:true});
+})();
+
+/* ==============================
+   4. Timing Integrity
+============================== */
+
+(function(){
+    const start=performance.now();
+    setTimeout(()=>{
+        const delta=performance.now()-start;
+        if(delta<5) Shield.penalize("timer_anomaly",1);
+        Shield.reward();
+    },200);
+})();
+
+/* ==============================
+   5. Lightweight Proof-of-Work
+============================== */
+
+(async function(){
+    const encoder=new TextEncoder();
+    let solved=false;
+
+    for(let nonce=0;nonce<5000;nonce++){
+        const data="DFI"+nonce;
+        const hash=await crypto.subtle.digest(
+            "SHA-256",
+            encoder.encode(data)
+        );
+        const hex=[...new Uint8Array(hash)]
+            .map(b=>b.toString(16).padStart(2,"0"))
+            .join("");
+
+        if(hex.startsWith("000")){
+            solved=true;
+            break;
+        }
+    }
+
+    if(solved){
+        Shield.powSolved=true;
+        Shield.reward();
+    }else{
+        Shield.penalize("pow_failed",5);
+    }
+})();
+
+/* ==============================
+   6. Final Gate
+============================== */
+
+setTimeout(()=>{
+
+    const risk =
+        Shield.score -
+        (Shield.signals*0.5) +
+        (Shield.powSolved? -3:5);
+
+    if(risk < 8){
+        document.getElementById("gate").style.display="none";
+        document.getElementById("content").style.display="block";
+    }else{
+        document.getElementById("gate").innerText=
+            "Access restricted.";
+    }
+
+},3500);
+
+</script>
+</body>
+</html>
