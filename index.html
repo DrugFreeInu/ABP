@@ -2,33 +2,163 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>DFI</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<!-- Silent protection layers -->
-<script src="1.js" defer></script>
-<script src="2.js" defer></script>
-<script src="3.js" defer></script>
-<script src="4.js" defer></script>
-<script src="5.js" defer></script>
-
+<title>DFI Secure Gate</title>
 <style>
-html,body{
-    margin:0;
-    height:100%;
-    background:#000;
+body{
+  margin:0;
+  background:#000;
+  color:#0f0;
+  font-family:monospace;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  height:100vh;
 }
-#frame{
-    position:fixed;
-    inset:0;
-    border:none;
-}
+#status{opacity:.6}
 </style>
 </head>
-
 <body>
 
-<iframe id="frame" src="6.html"></iframe>
+<div id="status">Initializing secure environment…</div>
 
+<script>
+
+/* =========================================================
+   DFI HARD GATE LOADER
+   - Silent protection stack
+   - Aggregated scoring
+   - Conditional content load
+   - GitHub static compatible
+========================================================= */
+
+const Gate = {
+    score: 0,
+    signals: 0,
+    flags: new Set(),
+    ready: false,
+
+    penalize(r,w=1){
+        if(!this.flags.has(r)){
+            this.flags.add(r);
+            this.score+=w;
+        }
+    },
+
+    reward(){
+        this.signals++;
+    }
+};
+
+/* =============================
+   BASIC ENVIRONMENT CHECKS
+============================= */
+
+(function(){
+
+    if(navigator.webdriver)
+        Gate.penalize("webdriver",5);
+
+    if(/Headless|Phantom|Slimer/i.test(navigator.userAgent))
+        Gate.penalize("headless",5);
+
+    if(!navigator.languages?.length)
+        Gate.penalize("no_languages",2);
+
+    if(window.outerWidth===0 || window.outerHeight===0)
+        Gate.penalize("zero_viewport",3);
+
+    Gate.reward();
+
+})();
+
+/* =============================
+   TIMING INTEGRITY
+============================= */
+
+(function(){
+
+    const start=performance.now();
+
+    setTimeout(()=>{
+        const delta=performance.now()-start;
+
+        if(delta<5)
+            Gate.penalize("timer_anomaly",1);
+
+        Gate.reward();
+    },200);
+
+})();
+
+/* =============================
+   LIGHT BEHAVIOR CHECK
+============================= */
+
+(function(){
+
+    let moved=false;
+
+    addEventListener("mousemove",()=>{
+        moved=true;
+        Gate.reward();
+    },{once:true,passive:true});
+
+    setTimeout(()=>{
+        if(!moved)
+            Gate.penalize("no_movement",2);
+    },1500);
+
+})();
+
+/* =============================
+   LOAD STACK FILES SILENTLY
+============================= */
+
+["1.js","2.js","3.js","4.js","5.js"].forEach(file=>{
+    const s=document.createElement("script");
+    s.src=file;
+    s.defer=true;
+    document.head.appendChild(s);
+});
+
+/* =============================
+   FINAL DECISION
+============================= */
+
+setTimeout(()=>{
+
+    const risk =
+        Gate.score -
+        (Gate.signals * 0.5);
+
+    if(risk < 8){
+        loadContent();
+    }else{
+        document.getElementById("status").innerText =
+            "Access restricted.";
+    }
+
+},3500);
+
+
+/* =============================
+   LOAD PROTECTED CONTENT
+============================= */
+
+function loadContent(){
+
+    fetch("6.html")
+    .then(res=>res.text())
+    .then(html=>{
+        document.body.innerHTML = html;
+    })
+    .catch(()=>{
+        document.getElementById("status").innerText =
+            "Load error.";
+    });
+
+}
+
+</script>
 </body>
 </html>
